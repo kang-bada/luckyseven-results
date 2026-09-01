@@ -1,4 +1,4 @@
-/* 럭키세븐 — 당첨번호 주간 자동 갱신 v3 (GitHub Actions용)
+/* 럭키세븐 — 당첨번호 주간 자동 갱신 v4 (GitHub Actions용)
    로또: ① smok95.github.io (전 회차 일괄) → ② puzizig 회차 조회(최신 3회차) → ③ 동행복권 API
    연금: puzizig 회차 조회 (최신 5회차)
    결과는 results.json 에 누적. 이미 있는 회차는 절대 덮어쓰지 않는다. */
@@ -28,6 +28,20 @@ try{
     got++; changed++;
   }
   console.log('로또①:', got? got+'회차 추가':'새 회차 없음');
+  /* 역대 등수별 당첨자 수 합계 — 앱 확률 카드의 '역대 N명' 자동 갱신용 */
+  try{
+    const w=[0,0,0,0,0]; let base=0;
+    for(const it of arr){
+      if(it.draw_no>base) base=it.draw_no;
+      (it.divisions||[]).slice(0,5).forEach((d,i)=>{
+        if(d && typeof d.winners==='number') w[i]+=d.winners; });
+    }
+    const st={ base, w };
+    if(JSON.stringify((cur.stats||{}).lotto)!==JSON.stringify(st)){
+      cur.stats = { lotto: st }; changed++;
+    }
+    console.log('역대 당첨 합계:', base+'회 기준', w.join(','));
+  }catch(e){ console.log('합계 계산 건너뜀:', e.message); }
 }catch(e){ console.log('로또① 실패:', e.message); }
 
 /* ══ 로또 ② — 1순위가 아직 안 올렸으면 puzizig에서 최신 회차 직접 ══ */
