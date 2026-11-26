@@ -1,14 +1,31 @@
 name: update-results
 on:
   schedule:
-    - cron: '20 12 * * 6'   # 토 21:20 KST — 로또 발표 후
-    - cron: '20 11 * * 4'   # 목 20:20 KST — 연금복권 발표 후
-  workflow_dispatch:         # 수동 실행 버튼
+    # ⏰ 시각은 세계시(UTC) — 한국 시각 = UTC + 9시간
+    # 깃허브 예약 실행은 몇 시간씩 밀릴 때가 있다. 그래서 한 번이 아니라 발표 직후부터 10분마다 여러 번 시도한다.
+    # 이미 받은 회차는 다시 커밋하지 않으므로 여러 번 돌아도 안전하다.
+    # 정각(:00)은 깃허브가 가장 붐비는 시각이라 피했다.
+    # 로또 — 토 20:43 ~ 23:53 (한국)
+    - cron: '43,53 11 * * 6'
+    - cron: '3,13,23,33,43,53 12-14 * * 6'
+    # 로또 — 놓쳤을 때 대비: 일 07:07 · 12:07 (한국)
+    - cron: '7 22 * * 6'
+    - cron: '7 3 * * 0'
+    # 연금복권 — 목 19:23 ~ 22:53 (한국)
+    - cron: '23,33,43,53 10 * * 4'
+    - cron: '3,23,43 11-13 * * 4'
+    # 연금복권 — 놓쳤을 때 대비: 금 07:07 (한국)
+    - cron: '7 22 * * 4'
+  workflow_dispatch:         # 수동 실행 버튼 (외부 알람으로 부를 때도 이걸 쓴다)
 permissions:
   contents: write
+concurrency:                 # 두 번이 겹쳐 돌면 하나씩 차례로
+  group: update-results
+  cancel-in-progress: false
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,5 +36,7 @@ jobs:
           git config user.name  "results-bot"
           git config user.email "bot@users.noreply.github.com"
           git add results.json
-          git diff --quiet HEAD -- results.json || git commit -m "당첨번호 자동 갱신"
+          if git diff --cached --quiet; then echo "새 결과 없음 — 커밋 안 함"; exit 0; fi
+          git commit -m "당첨번호 자동 갱신"
+          git pull --rebase origin main || true
           git push
